@@ -1,4 +1,4 @@
-name: Test Hello World App
+name: Test and Deploy to GCP
 
 on:
   push:
@@ -6,7 +6,7 @@ on:
       - main
 
 jobs:
-  test-app:
+  test-and-deploy:
     runs-on: ubuntu-latest
 
     steps:
@@ -23,6 +23,7 @@ jobs:
           python -m pip install --upgrade pip
           pip install -r requirements.txt
 
+      # 1. LOCAL TEST IN GITHUB RUNNER
       - name: Run App and Test Response
         run: |
           python app.py &
@@ -31,8 +32,26 @@ jobs:
           echo "Response from app: $RESPONSE"
           
           if [[ "$RESPONSE" == *"Hello World"* ]]; then
-            echo "✅ SUCCESS: App is running and returning Hello World!"
+            echo "✅ Local test passed!"
           else
-            echo "❌ ERROR: App failed to respond correctly!"
+            echo "❌ Local test failed!"
             exit 1
           fi
+
+      # 2. ANSIBLE DEPLOYMENT TO GCP VM
+      - name: Install Ansible
+        run: pip install ansible
+
+      - name: Configure SSH Key
+        run: |
+          mkdir -p ~/.ssh
+          echo "${{ secrets.GCP_SSH_KEY }}" > ~/.ssh/id_rsa
+          chmod 600 ~/.ssh/id_rsa
+
+      - name: Inject GCP VM IP into Inventory
+        run: |
+          sed -i 's/GCP_VM_PUBLIC_IP/${{ secrets.GCP_VM_IP }}/g' inventory.ini
+
+      - name: Run Ansible Deployment
+        run: |
+          ansible-playbook -i inventory.ini deploy.yml
