@@ -1,0 +1,38 @@
+name: Test Hello World App
+
+on:
+  push:
+    branches:
+      - main
+
+jobs:
+  test-app:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install Dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+
+      - name: Run App and Test Response
+        run: |
+          python app.py &
+          sleep 3
+          RESPONSE=$(curl -s http://127.0.0.1:8080)
+          echo "Response from app: $RESPONSE"
+          
+          if [[ "$RESPONSE" == *"Hello World"* ]]; then
+            echo "✅ SUCCESS: App is running and returning Hello World!"
+          else
+            echo "❌ ERROR: App failed to respond correctly!"
+            exit 1
+          fi
