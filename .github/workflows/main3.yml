@@ -1,4 +1,4 @@
-name: Test and Deploy to GCP
+name: Test and Deploy to GCP1
 
 on:
   push:
