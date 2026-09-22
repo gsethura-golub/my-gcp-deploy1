@@ -37,26 +37,26 @@
         virtualenv: /var/www/myapp/venv
         virtualenv_command: python3 -m venv
 
-    - name: Create systemd service for app
+    - name: Create systemd service unit for Flask app
       copy:
-        dest: /etc/systemd/system/helloworld.service
+        dest: /etc/systemd/system/flaskapp.service
         content: |
           [Unit]
-          Description=Python Hello World Web App
+          Description=Flask Application
           After=network.target
 
           [Service]
           User=ubuntu
-          WorkingDirectory=/opt/hello-world
-          ExecStart=/opt/hello-world/venv/bin/gunicorn --bind 0.0.0.0:8080 app:app
+          WorkingDirectory=/var/www/myapp
+          ExecStart=/var/www/myapp/venv/bin/python3 app.py
           Restart=always
 
           [Install]
           WantedBy=multi-user.target
 
-    - name: Reload systemd, enable and start service
+    - name: Reload systemd, enable and start flaskapp service
       systemd:
-        name: helloworld
-        daemon_reload: yes
+        name: flaskapp
         state: restarted
         enabled: yes
+        daemon_reload: yes
