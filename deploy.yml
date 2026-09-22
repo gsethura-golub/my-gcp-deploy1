@@ -1,7 +1,7 @@
 ---
 - name: Deploy Python Hello World App to GCP
   hosts: webserver
-  become: true
+  become: yes
 
   tasks:
     - name: Update apt cache and install dependencies
@@ -15,15 +15,16 @@
 
     - name: Create app directory
       file:
-        path: /opt/hello-world
+        path: /var/www/myapp
         state: directory
         owner: ubuntu
         group: ubuntu
+        mode: '0755'
 
     - name: Copy app files
       copy:
         src: "{{ item }}"
-        dest: /opt/hello-world/
+        dest: /var/www/myapp/
         owner: ubuntu
         group: ubuntu
       loop:
@@ -32,8 +33,9 @@
 
     - name: Create virtual environment and install dependencies
       pip:
-        requirements: /opt/hello-world/requirements.txt
-        virtualenv: /opt/hello-world/venv
+        requirements: /var/www/myapp/requirements.txt
+        virtualenv: /var/www/myapp/venv
+        virtualenv_command: python3 -m venv
 
     - name: Create systemd service for app
       copy:
