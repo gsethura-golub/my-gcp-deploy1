@@ -1,0 +1,58 @@
+name: Test and Deploy to GCP
+
+on:
+  push:
+    branches:
+      - main
+
+jobs:
+  test-and-deploy:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install Dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+
+      # 1. LOCAL TEST IN GITHUB RUNNER
+      - name: Run App and Test Response
+        run: |
+          python app.py &
+          sleep 3
+          RESPONSE=$(curl -s http://127.0.0.1:8080)
+          echo "Response from app: $RESPONSE"
+          
+          if [[ "$RESPONSE" == *"Hello World"* ]]; then
+            echo "✅ Local test passed!"
+          else
+            echo "❌ Local test failed!"
+            exit 1
+          fi
+
+      # 2. ANSIBLE DEPLOYMENT TO GCP VM
+      - name: Install Ansible
+        run: pip install ansible
+
+      - name: Configure SSH Key
+        run: |
+          mkdir -p ~/.ssh
+          echo "${{ secrets.GCP_SSH_KEY }}" | tr -d '\r' > ~/.ssh/id_rsa
+          echo "" >> ~/.ssh/id_rsa
+          chmod 600 ~/.ssh/id_rsa
+
+      - name: Inject GCP VM IP into Inventory
+        run: |
+          sed -i 's/GCP_VM_PUBLIC_IP/${{ secrets.GCP_VM_IP }}/g' inventory.ini
+
+      - name: Run Ansible Deployment
+        run: |
+          ansible-playbook -i inventory.ini deploy.yml
