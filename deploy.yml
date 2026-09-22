@@ -1,10 +1,10 @@
 ---
-- name: Deploy Python Hello World App to GCP
-  hosts: webserver
+- name: Deploy Python Hello World App to GCP VM
+  hosts: all
   become: yes
 
   tasks:
-    - name: Update apt cache and install dependencies
+    - name: Install system dependencies
       apt:
         name:
           - python3
@@ -13,7 +13,7 @@
         state: present
         update_cache: yes
 
-    - name: Create app directory
+    - name: Ensure target directory exists
       file:
         path: /var/www/myapp
         state: directory
@@ -21,40 +21,37 @@
         group: ubuntu
         mode: '0755'
 
-    - name: Copy app files
+    - name: Copy application files
       copy:
-        src: "{{ item }}"
+        src: ./
         dest: /var/www/myapp/
         owner: ubuntu
         group: ubuntu
-      loop:
-        - app.py
-        - requirements.txt
 
-    - name: Create virtual environment and install dependencies
+    - name: Set up Python virtual environment and install requirements
       pip:
         requirements: /var/www/myapp/requirements.txt
         virtualenv: /var/www/myapp/venv
         virtualenv_command: python3 -m venv
 
-    - name: Create systemd service unit for Flask app
+    - name: Create systemd unit file for Flask app
       copy:
         dest: /etc/systemd/system/flaskapp.service
         content: |
           [Unit]
-          Description=Flask Application
+          Description=Flask Hello World Application
           After=network.target
 
           [Service]
           User=ubuntu
           WorkingDirectory=/var/www/myapp
-          ExecStart=/var/www/myapp/venv/bin/python3 app.py
+          ExecStart=/var/www/myapp/venv/bin/python /var/www/myapp/app.py
           Restart=always
 
           [Install]
           WantedBy=multi-user.target
 
-    - name: Reload systemd, enable and start flaskapp service
+    - name: Reload systemd and start Flask service
       systemd:
         name: flaskapp
         state: restarted
