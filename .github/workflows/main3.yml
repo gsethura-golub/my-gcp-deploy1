@@ -49,29 +49,35 @@ jobs:
           echo "" >> ~/.ssh/id_rsa
           chmod 600 ~/.ssh/id_rsa
 
-      # 👇 ADD GCP AUTHENTICATION & CLOUD SDK HERE 👇
       - name: Authenticate to GCP
         uses: google-github-actions/auth@v2
         with:
-          credentials_json: ${{ secrets.GCP_SA_KEY }}
+          credentials_json: '${{ secrets.GCP_SA_KEY }}'
 
       - name: Set up Cloud SDK
         uses: google-github-actions/setup-gcloud@v2
 
-      # 👇 ADD IAP SSH CONFIGURATION HERE 👇
+      # Pre-warm the IAP tunnel to register SSH key on VM metadata
       - name: Configure SSH for IAP Tunneling
         run: |
-          cat << 'EOF' >> ~/.ssh/config
-          Host hello-world-vm ${{ secrets.GCP_VM_IP }}
-              ProxyCommand gcloud compute start-iap-tunnel hello-world-vm 22 --listen-on-stdin --zone=us-central1-a --project=prj-d-sandbox-01-452914
-              StrictHostKeyChecking no
-              User ubuntu
-              IdentityFile ~/.ssh/id_rsa
-          EOF
+          gcloud compute ssh hello-world-vm \
+            --zone=us-central1-a \
+            --project=prj-d-sandbox-01-452914 \
+            --tunnel-through-iap \
+            --command="echo 'IAP SSH Connection Successful'" \
+            --strict-host-checking=no
 
       - name: Inject GCP VM IP into Inventory
         run: |
-          sed -i 's/GCP_VM_PUBLIC_IP/${{ secrets.GCP_VM_IP }}/g' inventory.ini
+          cat <<EOF > inventory.ini
+          [web]
+          hello-world-vm ansible_host=hello-world-vm
+
+          [web:vars]
+          ansible_user=ubuntu
+          ansible_ssh_private_key_file=~/.ssh/id_rsa
+          ansible_ssh_common_args='-o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -o ProxyCommand="gcloud compute start-iap-tunnel %h %p --listen-on-stdin --zone=us-central1-a --project=prj-d-sandbox-01-452914"'
+          EOF
 
       - name: Run Ansible Deployment
         run: |
