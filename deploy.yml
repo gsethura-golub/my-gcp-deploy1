@@ -17,16 +17,13 @@
       file:
         path: /var/www/myapp
         state: directory
-        owner: ubuntu
-        group: ubuntu
         mode: '0755'
 
     - name: Copy application files
       copy:
         src: ./
         dest: /var/www/myapp/
-        owner: ubuntu
-        group: ubuntu
+        mode: '0755'
 
     - name: Set up Python virtual environment and install requirements
       pip:
@@ -43,7 +40,7 @@
           After=network.target
 
           [Service]
-          User=ubuntu
+          User=root
           WorkingDirectory=/var/www/myapp
           ExecStart=/var/www/myapp/venv/bin/python /var/www/myapp/app.py
           Restart=always
