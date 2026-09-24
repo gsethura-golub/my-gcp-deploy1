@@ -50,48 +50,16 @@ jobs:
       - name: Set up Cloud SDK
         uses: google-github-actions/setup-gcloud@v2
 
-      - name: Configure SSH Key and Register VM Metadata
-        run: |
-          mkdir -p ~/.ssh
-          echo "${{ secrets.GCP_SSH_KEY }}" | tr -d '\r' > ~/.ssh/id_rsa
-          chmod 600 ~/.ssh/id_rsa
-          
-          # Derive public key from private key
-          ssh-keygen -y -f ~/.ssh/id_rsa > ~/.ssh/id_rsa.pub
-          
-          # Inject public key directly into VM instance metadata for user 'ubuntu'
-          gcloud compute instances add-metadata hello-world-vm \
-            --zone=us-central1-a \
-            --project=prj-d-sandbox-01-452914 \
-            --metadata=ssh-keys="ubuntu:$(cat ~/.ssh/id_rsa.pub)"
-
-      - name: Configure SSH for IAP Tunneling
-        run: |
-          cat << 'EOF' > ~/.ssh/config
-          Host hello-world-vm
-              HostName hello-world-vm
-              User ubuntu
-              IdentityFile ~/.ssh/id_rsa
-              StrictHostKeyChecking no
-              UserKnownHostsFile /dev/null
-              ProxyCommand gcloud compute start-iap-tunnel %h %p --listen-on-stdin --zone=us-central1-a --project=prj-d-sandbox-01-452914
-          EOF
-          chmod 600 ~/.ssh/config
-
-      - name: Verify IAP SSH Connection
-        run: |
-          gcloud compute ssh hello-world-vm \
-            --zone=us-central1-a \
-            --project=prj-d-sandbox-01-452914 \
-            --tunnel-through-iap \
-            --command="echo 'IAP SSH Connection Successful'" \
-            --ssh-flag="-o StrictHostKeyChecking=no"
-
-      - name: Inject GCP VM into Inventory
+      # Generate Ansible Inventory using gcloud native wrapper
+      - name: Create Inventory with gcloud SSH wrapper
         run: |
           cat <<EOF > inventory.ini
           [web]
           hello-world-vm
+
+          [web:vars]
+          ansible_ssh_executable=gcloud
+          ansible_ssh_extra_args='compute ssh --zone=us-central1-a --project=prj-d-sandbox-01-452914 --tunnel-through-iap'
           EOF
 
       - name: Run Ansible Deployment
