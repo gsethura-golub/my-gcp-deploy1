@@ -50,6 +50,19 @@ jobs:
       - name: Set up Cloud SDK
         uses: google-github-actions/setup-gcloud@v2
 
+      # Generate an SSH key pair for the GitHub runner session
+      - name: Setup SSH Key & Add to VM Metadata
+        run: |
+          mkdir -p ~/.ssh
+          ssh-keygen -t rsa -f ~/.ssh/id_rsa -N "" -q
+          
+          # Inject public key into VM metadata for user 'ubuntu'
+          gcloud compute instances add-metadata hello-world-vm \
+            --zone=us-central1-a \
+            --project=prj-d-sandbox-01-452914 \
+            --metadata=ssh-keys="ubuntu:$(cat ~/.ssh/id_rsa.pub)"
+
+      # Configure Inventory to use Standard OpenSSH with IAP ProxyCommand
       - name: Inject GCP VM into Inventory
         run: |
           cat <<EOF > inventory.ini
@@ -57,9 +70,9 @@ jobs:
           hello-world-vm
 
           [web:vars]
-          ansible_remote_tmp=/tmp
-          ansible_ssh_executable=gcloud
-          ansible_ssh_extra_args='compute ssh --zone=us-central1-a --project=prj-d-sandbox-01-452914 --tunnel-through-iap'
+          ansible_user=ubuntu
+          ansible_ssh_private_key_file=~/.ssh/id_rsa
+          ansible_ssh_common_args='-o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -o ProxyCommand="gcloud compute start-iap-tunnel %h %p --listen-on-stdin --zone=us-central1-a --project=prj-d-sandbox-01-452914"'
           EOF
 
       - name: Run Ansible Deployment
