@@ -42,13 +42,6 @@ jobs:
       - name: Install Ansible
         run: pip install ansible
 
-      - name: Configure SSH Key
-        run: |
-          mkdir -p ~/.ssh
-          echo "${{ secrets.GCP_SSH_KEY }}" | tr -d '\r' > ~/.ssh/id_rsa
-          echo "" >> ~/.ssh/id_rsa
-          chmod 600 ~/.ssh/id_rsa
-
       - name: Authenticate to GCP
         uses: google-github-actions/auth@v2
         with:
@@ -57,11 +50,23 @@ jobs:
       - name: Set up Cloud SDK
         uses: google-github-actions/setup-gcloud@v2
 
-      # Pre-warm connection and propagate SSH keys to VM metadata
+      - name: Configure SSH Key and Register VM Metadata
+        run: |
+          mkdir -p ~/.ssh
+          echo "${{ secrets.GCP_SSH_KEY }}" | tr -d '\r' > ~/.ssh/id_rsa
+          chmod 600 ~/.ssh/id_rsa
+          
+          # Derive public key from private key
+          ssh-keygen -y -f ~/.ssh/id_rsa > ~/.ssh/id_rsa.pub
+          
+          # Inject public key directly into VM instance metadata for user 'ubuntu'
+          gcloud compute instances add-metadata hello-world-vm \
+            --zone=us-central1-a \
+            --project=prj-d-sandbox-01-452914 \
+            --metadata=ssh-keys="ubuntu:$(cat ~/.ssh/id_rsa.pub)"
+
       - name: Configure SSH for IAP Tunneling
         run: |
-          # 1. Create SSH directory and write explicit SSH config
-          mkdir -p ~/.ssh
           cat << 'EOF' > ~/.ssh/config
           Host hello-world-vm
               HostName hello-world-vm
@@ -73,7 +78,6 @@ jobs:
           EOF
           chmod 600 ~/.ssh/config
 
-      # 2. Pre-warm connection to register SSH keys into VM metadata
       - name: Verify IAP SSH Connection
         run: |
           gcloud compute ssh hello-world-vm \
@@ -83,7 +87,6 @@ jobs:
             --command="echo 'IAP SSH Connection Successful'" \
             --ssh-flag="-o StrictHostKeyChecking=no"
 
-      # 3. Simplify Inventory file (SSH config handles the tunneling details)
       - name: Inject GCP VM into Inventory
         run: |
           cat <<EOF > inventory.ini
