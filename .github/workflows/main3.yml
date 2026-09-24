@@ -50,30 +50,23 @@ jobs:
       - name: Set up Cloud SDK
         uses: google-github-actions/setup-gcloud@v2
 
-      - name: Setup SSH Key & Provision GCP Access
+      # 3. CONFIGURE OS LOGIN SSH ACCESS
+      - name: Register SSH Key with OS Login & Fetch OS User
         run: |
           mkdir -p ~/.ssh
           ssh-keygen -t rsa -b 2048 -f ~/.ssh/id_rsa -N "" -q
 
-          # 1. Disable OS Login on VM so simple metadata key injection works for user 'ubuntu'
-          gcloud compute instances add-metadata hello-world-vm \
-            --zone=us-central1-a \
-            --project=prj-d-sandbox-01-452914 \
-            --metadata=enable-oslogin=FALSE,ssh-keys="ubuntu:$(cat ~/.ssh/id_rsa.pub)"
-
-          # 2. Register key with OS Login just in case OS Login is enforced project-wide
+          # Register key directly with the Service Account's OS Login profile
           gcloud compute os-login ssh-keys add \
             --key-file=~/.ssh/id_rsa.pub \
-            --ttl=1h || true
+            --ttl=1h
 
-          # 3. Test raw gcloud connection first (forces key propagation)
-          gcloud compute ssh ubuntu@hello-world-vm \
-            --zone=us-central1-a \
-            --project=prj-d-sandbox-01-452914 \
-            --tunnel-through-iap \
-            --command="echo 'SSH Connection Verified'" \
-            --ssh-flag="-o StrictHostKeyChecking=no"
+          # Extract the auto-generated OS Login username for this Service Account
+          OS_USER=$(gcloud compute os-login describe-profile --format="value(posixAccounts[0].username)")
+          echo "Detected OS Login Username: ${OS_USER}"
+          echo "OS_USER=${OS_USER}" >> $GITHUB_ENV
 
+      # 4. INJECT INVENTORY WITH DYNAMIC OS LOGIN USER
       - name: Inject GCP VM into Inventory
         run: |
           cat <<EOF > inventory.ini
@@ -81,8 +74,9 @@ jobs:
           hello-world-vm
 
           [web:vars]
-          ansible_user=ubuntu
+          ansible_user=${OS_USER}
           ansible_ssh_private_key_file=~/.ssh/id_rsa
+          ansible_remote_tmp=/tmp
           ansible_ssh_common_args='-o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -o ConnectTimeout=30 -o ProxyCommand="gcloud compute start-iap-tunnel %h %p --listen-on-stdin --zone=us-central1-a --project=prj-d-sandbox-01-452914"'
           EOF
 
