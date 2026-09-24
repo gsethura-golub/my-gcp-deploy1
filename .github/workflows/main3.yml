@@ -60,25 +60,35 @@ jobs:
       # Pre-warm connection and propagate SSH keys to VM metadata
       - name: Configure SSH for IAP Tunneling
         run: |
+          # 1. Create SSH directory and write explicit SSH config
+          mkdir -p ~/.ssh
+          cat << 'EOF' > ~/.ssh/config
+          Host hello-world-vm
+              HostName hello-world-vm
+              User ubuntu
+              IdentityFile ~/.ssh/id_rsa
+              StrictHostKeyChecking no
+              UserKnownHostsFile /dev/null
+              ProxyCommand gcloud compute start-iap-tunnel %h %p --listen-on-stdin --zone=us-central1-a --project=prj-d-sandbox-01-452914
+          EOF
+          chmod 600 ~/.ssh/config
+
+      # 2. Pre-warm connection to register SSH keys into VM metadata
+      - name: Verify IAP SSH Connection
+        run: |
           gcloud compute ssh hello-world-vm \
             --zone=us-central1-a \
             --project=prj-d-sandbox-01-452914 \
             --tunnel-through-iap \
             --command="echo 'IAP SSH Connection Successful'" \
-            --ssh-flag="-o StrictHostKeyChecking=no" \
-            --ssh-flag="-o UserKnownHostsFile=/dev/null"
+            --ssh-flag="-o StrictHostKeyChecking=no"
 
-      # Generate dynamic inventory with exact SSH proxy settings
-      - name: Inject GCP VM IP into Inventory
+      # 3. Simplify Inventory file (SSH config handles the tunneling details)
+      - name: Inject GCP VM into Inventory
         run: |
           cat <<EOF > inventory.ini
           [web]
-          hello-world-vm ansible_host=hello-world-vm
-
-          [web:vars]
-          ansible_user=ubuntu
-          ansible_ssh_private_key_file=~/.ssh/id_rsa
-          ansible_ssh_common_args='-o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -o ProxyCommand="gcloud compute start-iap-tunnel %h %p --listen-on-stdin --zone=us-central1-a --project=prj-d-sandbox-01-452914"'
+          hello-world-vm
           EOF
 
       - name: Run Ansible Deployment
