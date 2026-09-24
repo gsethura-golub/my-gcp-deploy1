@@ -65,7 +65,8 @@ jobs:
             --project=prj-d-sandbox-01-452914 \
             --tunnel-through-iap \
             --command="echo 'IAP SSH Connection Successful'" \
-            --strict-host-checking=no
+            --ssh-flag="-o StrictHostKeyChecking=no" \
+            --ssh-flag="-o UserKnownHostsFile=/dev/null"
 
       - name: Inject GCP VM IP into Inventory
         run: |
