@@ -57,7 +57,7 @@ jobs:
       - name: Set up Cloud SDK
         uses: google-github-actions/setup-gcloud@v2
 
-      # Pre-warm the IAP tunnel to register SSH key on VM metadata
+      # Pre-warm connection and propagate SSH keys to VM metadata
       - name: Configure SSH for IAP Tunneling
         run: |
           gcloud compute ssh hello-world-vm \
@@ -68,6 +68,7 @@ jobs:
             --ssh-flag="-o StrictHostKeyChecking=no" \
             --ssh-flag="-o UserKnownHostsFile=/dev/null"
 
+      # Generate dynamic inventory with exact SSH proxy settings
       - name: Inject GCP VM IP into Inventory
         run: |
           cat <<EOF > inventory.ini
