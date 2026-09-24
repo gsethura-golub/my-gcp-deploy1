@@ -50,19 +50,19 @@ jobs:
       - name: Set up Cloud SDK
         uses: google-github-actions/setup-gcloud@v2
 
-      # Generate an SSH key pair for the GitHub runner session
+      # Generate dynamic key and push to VM metadata
       - name: Setup SSH Key & Add to VM Metadata
         run: |
           mkdir -p ~/.ssh
-          ssh-keygen -t rsa -f ~/.ssh/id_rsa -N "" -q
+          ssh-keygen -t rsa -b 2048 -f ~/.ssh/id_rsa -N "" -q
           
-          # Inject public key into VM metadata for user 'ubuntu'
+          # Add/Overwrite metadata specifically for user 'ubuntu'
           gcloud compute instances add-metadata hello-world-vm \
             --zone=us-central1-a \
             --project=prj-d-sandbox-01-452914 \
             --metadata=ssh-keys="ubuntu:$(cat ~/.ssh/id_rsa.pub)"
 
-      # Configure Inventory to use Standard OpenSSH with IAP ProxyCommand
+      # Create Inventory using native OpenSSH over IAP ProxyCommand
       - name: Inject GCP VM into Inventory
         run: |
           cat <<EOF > inventory.ini
