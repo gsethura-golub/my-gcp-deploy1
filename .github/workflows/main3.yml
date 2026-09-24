@@ -50,22 +50,30 @@ jobs:
       - name: Set up Cloud SDK
         uses: google-github-actions/setup-gcloud@v2
 
-      # Generate dynamic key, upload to GCP, and wait for propagation
-      - name: Setup SSH Key & Add to VM Metadata
+      - name: Setup SSH Key & Provision GCP Access
         run: |
           mkdir -p ~/.ssh
           ssh-keygen -t rsa -b 2048 -f ~/.ssh/id_rsa -N "" -q
-          
-          # Register key on the instance
+
+          # 1. Disable OS Login on VM so simple metadata key injection works for user 'ubuntu'
           gcloud compute instances add-metadata hello-world-vm \
             --zone=us-central1-a \
             --project=prj-d-sandbox-01-452914 \
-            --metadata=ssh-keys="ubuntu:$(cat ~/.ssh/id_rsa.pub)"
+            --metadata=enable-oslogin=FALSE,ssh-keys="ubuntu:$(cat ~/.ssh/id_rsa.pub)"
 
-          echo "Waiting 15s for GCP guest agent to propagate SSH key to the VM..."
-          sleep 15
+          # 2. Register key with OS Login just in case OS Login is enforced project-wide
+          gcloud compute os-login ssh-keys add \
+            --key-file=~/.ssh/id_rsa.pub \
+            --ttl=1h || true
 
-      # Create Inventory using native OpenSSH over IAP ProxyCommand
+          # 3. Test raw gcloud connection first (forces key propagation)
+          gcloud compute ssh ubuntu@hello-world-vm \
+            --zone=us-central1-a \
+            --project=prj-d-sandbox-01-452914 \
+            --tunnel-through-iap \
+            --command="echo 'SSH Connection Verified'" \
+            --ssh-flag="-o StrictHostKeyChecking=no"
+
       - name: Inject GCP VM into Inventory
         run: |
           cat <<EOF > inventory.ini
