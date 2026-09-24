@@ -50,14 +50,14 @@ jobs:
       - name: Set up Cloud SDK
         uses: google-github-actions/setup-gcloud@v2
 
-      # Generate Ansible Inventory using gcloud native wrapper
-      - name: Create Inventory with gcloud SSH wrapper
+      - name: Inject GCP VM into Inventory
         run: |
           cat <<EOF > inventory.ini
           [web]
           hello-world-vm
 
           [web:vars]
+          ansible_remote_tmp=/tmp
           ansible_ssh_executable=gcloud
           ansible_ssh_extra_args='compute ssh --zone=us-central1-a --project=prj-d-sandbox-01-452914 --tunnel-through-iap'
           EOF
