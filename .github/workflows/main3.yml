@@ -53,18 +53,18 @@ jobs:
       # 3. CONFIGURE OS LOGIN SSH ACCESS
       - name: Register SSH Key with OS Login & Fetch OS User
         run: |
-          mkdir -p ~/.ssh
-          ssh-keygen -t rsa -b 2048 -f ~/.ssh/id_rsa -N "" -q
-
-          # Register key directly with the Service Account's OS Login profile
+          mkdir -p $HOME/.ssh
+          ssh-keygen -t rsa -b 2048 -f $HOME/.ssh/id_rsa -N "" -q <<< y
+          
+          # Register key using absolute path $HOME
           gcloud compute os-login ssh-keys add \
-            --key-file=~/.ssh/id_rsa.pub \
+            --key-file=$HOME/.ssh/id_rsa.pub \
             --ttl=1h
-
-          # Extract the auto-generated OS Login username for this Service Account
+          
+          # Extract the auto-generated OS Login username
           OS_USER=$(gcloud compute os-login describe-profile --format="value(posixAccounts[0].username)")
-          echo "Detected OS Login Username: ${OS_USER}"
-          echo "OS_USER=${OS_USER}" >> $GITHUB_ENV
+          echo "Detected OS Login Username: $OS_USER"
+          echo "OS_USER=$OS_USER" >> $GITHUB_ENV
 
       # 4. INJECT INVENTORY WITH DYNAMIC OS LOGIN USER
       - name: Inject GCP VM into Inventory
