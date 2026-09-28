@@ -82,4 +82,4 @@ jobs:
 
       - name: Run Ansible Deployment
         run: |
-          ansible-playbook -i inventory.ini deploy.yml
+          ANSIBLE_HOST_KEY_CHECKING=False ansible-playbook -vvv -i inventory.ini deploy.yml
